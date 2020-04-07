@@ -164,7 +164,7 @@ class ReactionRole(Cog):
         while True:
             try:
                 if not first and reactions:
-                    embed_data["fields"][0]["value"] = "\n".join(f"{k} -> {v}" for k, v in reactions.items())
+                    embed_data["fields"][0]["value"] = "\n".join(f"{k} {v}" for k, v in reactions.items())
                 else:
                     embed_data["fields"][0]["value"] = "<없음>"
 
@@ -212,7 +212,8 @@ class ReactionRole(Cog):
         await msg.clear_reactions()
         del embed_data["fields"][1]
         embed_data["title"] = content
-        embed_data["description"] = "."
+        embed_data["description"] = ""
+        embed_data["fields"][0]["name"] = "・"
 
         target_msg = await channel.send(embed=Embed.from_dict(embed_data))
         for k in reactions:
