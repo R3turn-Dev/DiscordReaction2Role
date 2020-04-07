@@ -91,10 +91,10 @@ class ReactionRole(Cog):
         if msg.id not in targets:
             return False, "Not in target messages", None
 
-        if reaction.emoji not in targets[msg.id]:
+        if reaction.emoji.id not in targets[msg.id]:
             return False, "Not in target emojis", None
 
-        role_id = targets[msg.id][reaction.emoji]
+        role_id = targets[msg.id][reaction.emoji.id]
         role = guild.get_role(role_id)
 
         if role:
@@ -223,7 +223,7 @@ class ReactionRole(Cog):
             self.target_messages[f"{ctx.guild.id}, {ctx.channel.id}"] = {}
 
         self.target_messages[f"{ctx.guild.id}, {ctx.channel.id}"][target_msg.id] = \
-            dict((k.emoji, v.id) for k, v in reactions.items())
+            dict((k.emoji.id, v.id) for k, v in reactions.items())
         self.save_messages()
         await ctx.send(f"{ctx.author.mention} 등록이 완료되었습니다.")
 
