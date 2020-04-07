@@ -212,7 +212,8 @@ class ReactionRole(Cog):
                     }
                 await msg.edit(embed=Embed.from_dict(embed_data))
             except:
-                return await ctx.send("오류로 인해 등록을 취소했습니다.")
+                await ctx.send("오류로 인해 등록을 취소했습니다.")
+                return await ctx.send(traceback.format_exc())
 
         await msg.clear_reactions()
         del embed_data["fields"][1]
