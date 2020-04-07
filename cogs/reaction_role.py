@@ -1,4 +1,5 @@
-from discord import Reaction, User, Member, Message, Permissions, Embed, Role
+from discord import User, Member, Message, Permissions, Embed, Role
+from discord import Reaction, Emoji, PartialEmoji
 from discord import TextChannel, Guild
 from discord.ext.commands import AutoShardedBot as Bot
 from discord.ext.commands import Cog, Context, command, group
@@ -180,6 +181,10 @@ class ReactionRole(Cog):
 
                 if reaction.emoji == "✅":
                     break
+
+                if isinstance(reaction.emoji, PartialEmoji) or not reaction.emoji.available:
+                    await ctx.send("봇이 이용할 수 없는 이모지입니다. 이모지 등록으로 돌아갑니다.", delete_after=5)
+                    continue
 
                 embed_data["fields"][1]["name"] = f"{reaction}의 역할 설정"
                 embed_data["fields"][1]["value"] = "해당 이모지에 지급할 역할을 멘션해주세요."
