@@ -22,7 +22,7 @@ class ReactionRole(Cog):
         self.bot = bot
 
         # target_messages[(guild_id, channel_id)] = Dict[message_id, Dict[reaction_id, role_id]]
-        self._target_messages: Dict[str, Dict[int, Dict[int, int]]] = {}
+        self._target_messages: Dict[str, Dict[str, Dict[str, int]]] = {}
 
     @property
     def target_messages(self):
@@ -51,11 +51,6 @@ class ReactionRole(Cog):
         if exists(self.file_name):
             self.target_messages = json.load(open(self.file_name))
 
-        for g_c, v in self.target_messages.copy().items():
-            for msg_id, reaction_id in v.copy().items():
-                del self.target_messages[g_c][msg_id]
-                self.target_messages[g_c][int(msg_id)] = reaction_id
-
         print(self.target_messages)
         for g_c, v in self.target_messages.items():
             guild_id, channel_id = map(int, g_c.split(", "))
@@ -65,14 +60,17 @@ class ReactionRole(Cog):
 
                 for msg_id in v.keys():
                     try:
-                        msg = await channel.fetch_message(msg_id)
+                        msg = await channel.fetch_message(int(msg_id))
                         if msg_id not in [x.id for x in self.bot._connection._messages]:
                             self.bot._connection._messages.append(msg)
                             print("Added message cache:", msg_id)
                     except:
+                        print(msg_id, traceback.format_exc())
                         pass
             except:
+                print(traceback.format_exc())
                 pass
+        print(self.target_messages)
 
     async def is_target_reaction(self, reaction, user):
         guild_id: int = user.guild.id if user.guild else 0  # DM 채널 -> 0
@@ -89,13 +87,16 @@ class ReactionRole(Cog):
         if not targets:
             return False, "Target messages not found", None
 
-        if msg.id not in targets:
+        if str(msg.id) not in targets:
             return False, "Not in target messages", None
 
-        if reaction.emoji.id not in targets[msg.id]:
+        if isinstance(reaction.emoji, str) and reaction.emoji not in targets[msg.id]:
             return False, "Not in target emojis", None
 
-        role_id = targets[msg.id][reaction.emoji.id]
+        if str(reaction.emoji.id) not in targets[str(msg.id)]:
+            return False, "Not in target emojis", None
+
+        role_id = targets[str(msg.id)][str(reaction.emoji.id)]
         role = guild.get_role(role_id)
 
         if role:
@@ -182,7 +183,8 @@ class ReactionRole(Cog):
                 if reaction.emoji == "✅":
                     break
 
-                if isinstance(reaction.emoji, PartialEmoji) or not reaction.emoji.available:
+                if (isinstance(reaction.emoji, Emoji) and not reaction.emoji.available) or \
+                        isinstance(reaction.emoji, PartialEmoji):
                     await ctx.send("봇이 이용할 수 없는 이모지입니다. 이모지 등록으로 돌아갑니다.", delete_after=5)
                     continue
 
@@ -191,7 +193,7 @@ class ReactionRole(Cog):
                 await msg.edit(embed=Embed.from_dict(embed_data))
 
                 try:
-                    role_message: Message = await self.bot.wait_for("message", check=check_same_user, timeout=60*10)  # 10분
+                    role_message: Message = await self.bot.wait_for("message", check=check_same_user, timeout=60*10)
                     if not role_message.role_mentions:
                         await ctx.send("올바른 역할을 멘션하지 않았습니다. 이모지 등록으로 돌아갑니다.", delete_after=5)
                         continue
@@ -221,15 +223,18 @@ class ReactionRole(Cog):
         embed_data["description"] = ""
         embed_data["fields"][0]["name"] = "・"
 
+        g_c = f"{ctx.guild.id}, {ctx.channel.id}"
         target_msg = await channel.send(embed=Embed.from_dict(embed_data))
         for k in reactions:
             await target_msg.add_reaction(k.emoji)
 
-        if (ctx.guild.id, ctx.channel.id) not in self.target_messages:
-            self.target_messages[f"{ctx.guild.id}, {ctx.channel.id}"] = {}
+        if g_c not in self.target_messages:
+            self.target_messages[g_c] = {}
 
-        self.target_messages[f"{ctx.guild.id}, {ctx.channel.id}"][target_msg.id] = \
-            dict((k.emoji.id, v.id) for k, v in reactions.items())
+        self.target_messages[g_c][str(target_msg.id)] = \
+            dict((k.emoji if isinstance(k.emoji, str) else str(k.emoji.id), v.id) for k, v in reactions.items())
+
+        print(self.target_messages)
         self.save_messages()
         await ctx.send(f"{ctx.author.mention} 등록이 완료되었습니다.")
 
@@ -287,6 +292,14 @@ class ReactionRole(Cog):
     async def c_b(self, ctx: Context):
         await ctx.send(f"```py\n{self.bot.cached_messages}\n```")
         await ctx.send(f"```py\n{[x.id for x in self.bot._connection._messages]}\n```")
+
+    @command(name="c1")
+    async def c_c1(self, ctx, *args):
+        return await ctx.send(repr(args))
+
+    @command(name="c2")
+    async def c_c2(self, ctx, *, args):
+        return await ctx.send(repr(args))
 
 
 def setup(bot: Bot):
