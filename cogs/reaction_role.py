@@ -72,31 +72,38 @@ class ReactionRole(Cog):
                 pass
         print(self.target_messages)
 
+    async def get_registered_reactions(self, msg: Message) -> Dict[str, int]:
+        guild_id: int = msg.guild.id if msg.guild else 0  # DM 채널 -> 0
+        channel_id: int = msg.channel.id
+        guild: Optional[Guild] = msg.guild
+
+        if f"{guild_id}, {channel_id}" not in self.target_messages:
+            return {}
+
+        targets = self.target_messages[f"{guild_id}, {channel_id}"]
+        if targets and targets.get(str(msg.id), None):
+            return targets[str(msg.id)]
+
+        return {}
+
     async def is_target_reaction(self, reaction, user):
-        guild_id: int = user.guild.id if user.guild else 0  # DM 채널 -> 0
-        channel_id: int = reaction.message.channel.id
         msg: Message = reaction.message
         guild: Optional[Guild] = msg.guild
 
-        if f"{guild_id}, {channel_id}" not in self.target_messages:  # 타깃 목록에 없는 경우
-            return False, "Not in target guild-channel", None
+        reactions = await self.get_registered_reactions(msg)
+        key: str = ""
 
-        targets = self.target_messages[f"{guild_id}, {channel_id}"]
+        if isinstance(reaction.emoji, str):
+            if reaction.emoji not in reactions:
+                return False, "Not in target emojis", None
+            key = reaction.emoji
 
-        # 타깃 메시지가 아닌 경우
-        if not targets:
-            return False, "Target messages not found", None
+        else:
+            if str(reaction.emoji.id) not in reactions:
+                return False, "Not in target emojis", None
+            key = str(reaction.emojiid)
 
-        if str(msg.id) not in targets:
-            return False, "Not in target messages", None
-
-        if isinstance(reaction.emoji, str) and reaction.emoji not in targets[msg.id]:
-            return False, "Not in target emojis", None
-
-        if str(reaction.emoji.id) not in targets[str(msg.id)]:
-            return False, "Not in target emojis", None
-
-        role_id = targets[str(msg.id)][str(reaction.emoji.id)]
+        role_id = reactions[key]
         role = guild.get_role(role_id)
 
         if role:
@@ -105,11 +112,18 @@ class ReactionRole(Cog):
 
     @Cog.listener()
     async def on_reaction_add(self, reaction: Reaction, user: Union[Member, User]):
+        if user.bot:
+            return
+
         # print(user, reaction.message.guild, reaction.message.channel, reaction)
         result, feedback, role = await self.is_target_reaction(reaction, user)
 
         if result:
             await user.add_roles(role)
+
+            for _reac, _ in (await self.get_registered_reactions(reaction.message)).items():
+                if _reac != reaction.emoji:
+                    await reaction.message.remove_reaction(_reac, user)
         else:
             print(feedback)
 
@@ -219,12 +233,14 @@ class ReactionRole(Cog):
 
         await msg.clear_reactions()
         del embed_data["fields"][1]
-        embed_data["title"] = content
+        embed_data["title"] = ""
         embed_data["description"] = ""
-        embed_data["fields"][0]["name"] = "・"
+        embed_data["fields"][0]["name"] = content
 
-        g_c = f"{ctx.guild.id}, {ctx.channel.id}"
-        target_msg = await channel.send(embed=Embed.from_dict(embed_data))
+        g_c = f"{ctx.guild.id}, {channel.id}"
+        target_msg = await channel.send(
+            "{}\n".format(content) + "\n".join("> {} {}".format(reac, role.mention) for reac, role in reactions.items())
+            )
         for k in reactions:
             await target_msg.add_reaction(k.emoji)
 
