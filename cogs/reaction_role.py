@@ -261,7 +261,7 @@ class ReactionRole(Cog):
 
         for g_c, v in self.target_messages.items():
             guild_id, channel_id = map(int, g_c.split(", "))
-            if msg_id in v.keys():
+            if str(msg_id) in v.keys():
                 channel: TextChannel = self.bot.get_channel(channel_id)
                 target_msg = await channel.fetch_message(msg_id)
 
